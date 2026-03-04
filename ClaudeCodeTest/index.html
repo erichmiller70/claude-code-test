@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS Terminal | AI Chat Interface</title>
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --matrix-green: #00ff41;
+            --matrix-dim: #0a6e1e;
+            --matrix-dark: #003b00;
+            --bg: #0a0a0a;
+            --bg-light: #111;
+            --border: #0f3d0f;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--matrix-green);
+            font-family: 'Courier New', Courier, monospace;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Matrix Rain Canvas */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+
+        /* Scanline Overlay */
+        .scanline-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.08) 2px,
+                rgba(0, 0, 0, 0.08) 4px
+            );
+        }
+
+        /* Content sits above canvas */
+        .content {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: bold;
+            text-shadow:
+                0 0 10px var(--matrix-green),
+                0 0 20px var(--matrix-green),
+                0 0 40px var(--matrix-dark);
+            letter-spacing: 0.15em;
+            margin-bottom: 0.5rem;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+            color: var(--matrix-dim);
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+
+        .typewriter {
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 2px solid var(--matrix-green);
+            animation: typing 3s steps(40) 1s forwards, blink-caret 0.75s step-end infinite;
+            width: 0;
+            display: inline-block;
+        }
+
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        @keyframes blink-caret {
+            50% { border-color: transparent; }
+        }
+
+        .cta-btn {
+            display: inline-block;
+            padding: 14px 40px;
+            border: 1px solid var(--matrix-green);
+            color: var(--matrix-green);
+            background: transparent;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .cta-btn:hover {
+            background: var(--matrix-green);
+            color: var(--bg);
+            box-shadow: 0 0 20px var(--matrix-green), 0 0 40px var(--matrix-dark);
+        }
+
+        /* ===== FEATURES ===== */
+        .features {
+            padding: 6rem 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 3rem;
+            text-shadow: 0 0 10px var(--matrix-green);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            border: 1px solid var(--border);
+            background: rgba(0, 20, 0, 0.5);
+            overflow: hidden;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--matrix-green);
+            box-shadow: 0 0 15px var(--matrix-dark);
+        }
+
+        .feature-card-header {
+            background: var(--border);
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            color: var(--matrix-dim);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .feature-card-header .dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .feature-card-header .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--matrix-dim);
+        }
+
+        .feature-card-body {
+            padding: 1.5rem;
+        }
+
+        .feature-card-body h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            color: var(--matrix-green);
+        }
+
+        .feature-card-body p {
+            color: var(--matrix-dim);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        /* ===== CHAT SECTION ===== */
+        .chat-section {
+            padding: 4rem 2rem 6rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .terminal {
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.85);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.05);
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: var(--border);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .terminal-header .dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-header .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .terminal-header .dot.red { background: #ff5f57; }
+        .terminal-header .dot.yellow { background: #ffbd2e; }
+        .terminal-header .dot.green { background: #28c840; }
+
+        .terminal-title {
+            font-size: 0.8rem;
+            color: var(--matrix-dim);
+            letter-spacing: 0.1em;
+        }
+
+        .terminal-status {
+            font-size: 0.7rem;
+            color: var(--matrix-dim);
+        }
+
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 1.5rem;
+            scroll-behavior: smooth;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: var(--matrix-dark);
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-prefix {
+            color: #00bfff;
+        }
+
+        .message.bot .message-prefix {
+            color: var(--matrix-green);
+        }
+
+        .message.user .message-text {
+            color: #aaddff;
+        }
+
+        .message.bot .message-text {
+            color: var(--matrix-green);
+        }
+
+        .message.system {
+            color: var(--matrix-dim);
+            font-style: italic;
+        }
+
+        .message.error .message-text {
+            color: #ff4444;
+        }
+
+        .typing-indicator {
+            color: var(--matrix-dim);
+            font-size: 0.9rem;
+        }
+
+        .typing-indicator span {
+            animation: blink-dots 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink-dots {
+            0%, 60%, 100% { opacity: 0; }
+            30% { opacity: 1; }
+        }
+
+        .chat-input-area {
+            border-top: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 10, 0, 0.5);
+        }
+
+        .prompt-symbol {
+            color: var(--matrix-green);
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--matrix-green);
+            font-family: inherit;
+            font-size: 0.95rem;
+            caret-color: var(--matrix-green);
+        }
+
+        .chat-input::placeholder {
+            color: var(--matrix-dark);
+        }
+
+        .send-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--matrix-green);
+            font-family: inherit;
+            font-size: 0.8rem;
+            padding: 6px 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            background: var(--matrix-green);
+            color: var(--bg);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .send-btn:disabled:hover {
+            background: transparent;
+            color: var(--matrix-green);
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--matrix-dark);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        footer a {
+            color: var(--matrix-dim);
+            text-decoration: none;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            .chat-messages {
+                height: 300px;
+            }
+
+            .features {
+                padding: 4rem 1rem;
+            }
+
+            .chat-section {
+                padding: 2rem 1rem 4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+    <div class="scanline-overlay"></div>
+
+    <div class="content">
+        <!-- HERO -->
+        <section class="hero">
+            <h1 class="hero-title">NEXUS</h1>
+            <div class="hero-subtitle">
+                <span class="typewriter">Intelligent AI terminal — powered by automation</span>
+            </div>
+            <a href="#chat" class="cta-btn">Initialize Chat</a>
+        </section>
+
+        <!-- FEATURES -->
+        <section class="features">
+            <h2 class="section-title">// SYSTEM CAPABILITIES</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-card-header">
+                        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                        <span>process_01.exe</span>
+                    </div>
+                    <div class="feature-card-body">
+                        <h3>&gt; Natural Language</h3>
+                        <p>Communicate in plain text. The AI parses your intent and responds with precision through n8n-powered workflows.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-header">
+                        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                        <span>process_02.exe</span>
+                    </div>
+                    <div class="feature-card-body">
+                        <h3>&gt; Workflow Automation</h3>
+                        <p>Connected to n8n automation pipelines. Every message triggers intelligent workflows that fetch, process, and deliver results.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-header">
+                        <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+                        <span>process_03.exe</span>
+                    </div>
+                    <div class="feature-card-body">
+                        <h3>&gt; Persistent Memory</h3>
+                        <p>Session-aware conversations. The system remembers context across your entire chat session for coherent interactions.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CHAT -->
+        <section class="chat-section" id="chat">
+            <h2 class="section-title">// TERMINAL ACCESS</h2>
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="dots">
+                        <span class="dot red"></span>
+                        <span class="dot yellow"></span>
+                        <span class="dot green"></span>
+                    </div>
+                    <span class="terminal-title">NEXUS TERMINAL v2.0</span>
+                    <span class="terminal-status" id="connection-status">● STANDBY</span>
+                </div>
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message system">
+                        [SYSTEM] Terminal initialized. Type a message to begin.
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <span class="prompt-symbol">&gt;</span>
+                    <input
+                        type="text"
+                        class="chat-input"
+                        id="chat-input"
+                        placeholder="Enter command..."
+                        autocomplete="off"
+                    />
+                    <button class="send-btn" id="send-btn">SEND</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer>
+            <p>NEXUS TERMINAL v2.0 &mdash; Connection encrypted &mdash; Session active</p>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================================
+        // CONFIGURATION — Replace with your n8n webhook URL
+        // ============================================================
+        const N8N_WEBHOOK_URL = '/api/chat';
+
+        // ============================================================
+        // SESSION
+        // ============================================================
+        const SESSION_ID = crypto.randomUUID();
+
+        // ============================================================
+        // MATRIX RAIN
+        // ============================================================
+        (function initMatrixRain() {
+            const canvas = document.getElementById('matrix-canvas');
+            const ctx = canvas.getContext('2d');
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF';
+            const fontSize = 14;
+            let columns = Math.floor(canvas.width / fontSize);
+            let drops = Array(columns).fill(1);
+
+            window.addEventListener('resize', () => {
+                columns = Math.floor(canvas.width / fontSize);
+                drops = Array(columns).fill(1);
+            });
+
+            function draw() {
+                ctx.fillStyle = 'rgba(10, 10, 10, 0.06)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#00ff41';
+                ctx.font = fontSize + 'px monospace';
+
+                for (let i = 0; i < drops.length; i++) {
+                    const text = chars[Math.floor(Math.random() * chars.length)];
+                    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+            }
+
+            setInterval(draw, 45);
+        })();
+
+        // ============================================================
+        // CHAT LOGIC
+        // ============================================================
+        const messagesEl = document.getElementById('chat-messages');
+        const inputEl = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statusEl = document.getElementById('connection-status');
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.classList.add('message', type);
+
+            if (type === 'user') {
+                div.innerHTML = '<span class="message-prefix">user@nexus:~$ </span><span class="message-text">' + escapeHtml(text) + '</span>';
+            } else if (type === 'bot') {
+                div.innerHTML = '<span class="message-prefix">nexus&gt; </span><span class="message-text">' + escapeHtml(text) + '</span>';
+            } else if (type === 'error') {
+                div.innerHTML = '<span class="message-prefix">[ERROR] </span><span class="message-text">' + escapeHtml(text) + '</span>';
+            } else {
+                div.textContent = text;
+            }
+
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function showTyping() {
+            const div = document.createElement('div');
+            div.classList.add('typing-indicator');
+            div.id = 'typing';
+            div.innerHTML = 'nexus&gt; processing<span>.</span><span>.</span><span>.</span>';
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function hideTyping() {
+            const el = document.getElementById('typing');
+            if (el) el.remove();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML.replace(/\n/g, '<br>');
+        }
+
+        function setDisabled(disabled) {
+            inputEl.disabled = disabled;
+            sendBtn.disabled = disabled;
+        }
+
+        async function sendMessage() {
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            inputEl.value = '';
+            addMessage(text, 'user');
+            setDisabled(true);
+            statusEl.textContent = '● TRANSMITTING';
+            statusEl.style.color = '#ffbd2e';
+            showTyping();
+
+            try {
+                const res = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chatInput: text,
+                        sessionId: SESSION_ID
+                    })
+                });
+
+                hideTyping();
+
+                const contentType = res.headers.get('content-type') || '';
+                let responseBody = null;
+                try {
+                    if (contentType.includes('application/json')) {
+                        responseBody = await res.json();
+                    } else {
+                        responseBody = await res.text();
+                    }
+                } catch (_) {
+                    responseBody = '(could not read response body)';
+                }
+
+                if (!res.ok) {
+                    const msg = typeof responseBody === 'string'
+                        ? responseBody
+                        : (responseBody?.message || responseBody?.error || JSON.stringify(responseBody));
+                    throw new Error('Server responded with status ' + res.status + (msg ? ': ' + msg : ''));
+                }
+
+                const data = responseBody || {};
+                const reply = data.output || data.text || data.reply || data.body || JSON.stringify(data);
+                addMessage(reply, 'bot');
+                statusEl.textContent = '● CONNECTED';
+                statusEl.style.color = '#28c840';
+            } catch (err) {
+                hideTyping();
+                addMessage(err.message, 'error');
+                statusEl.textContent = '● ERROR';
+                statusEl.style.color = '#ff5f57';
+
+                setTimeout(() => {
+                    statusEl.textContent = '● STANDBY';
+                    statusEl.style.color = '';
+                }, 3000);
+            }
+
+            setDisabled(false);
+            inputEl.focus();
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Focus input on load
+        inputEl.focus();
+    </script>
+</body>
+</html>
